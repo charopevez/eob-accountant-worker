@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  eobdb:
+    image: 'mongo:5.0'
+    container_name: 'eob-db'
+    # restart: always
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=eobadm
+      - MONGO_INITDB_ROOT_PASSWORD=eobpass
+    volumes:
+      - ./init.js:/docker-entrypoint-initdb.d/init.js:ro
+      - ../db/mongo-data:/data/db
+
+  accountant-worker-service:
+    # restart: always
+    image: accountant-worker:latest
+    container_name: accountant-worker
+    ports:
+      - 10005:10005
+    depends_on: 
+      - eobdb
