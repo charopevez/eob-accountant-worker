@@ -6,7 +6,11 @@ import (
 )
 
 var (
-	ErrNotFound = NewAppError("not found", "NS-000010", "")
+	//account status error
+	ErrNotFound   = NewAppError("not found", "NS-000010", "")
+	ErrNotActive  = NewAppError("account isn't active", "NS-000011", "Please check you email for activation link")
+	ErrIsDeleted  = NewAppError("account is deleted", "NS-000012", "")
+	ErrNotMatched = NewAppError("wrong password", "NS-000012", "")
 )
 
 type AppError struct {

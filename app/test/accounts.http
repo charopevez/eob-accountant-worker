@@ -1,0 +1,48 @@
+# Login
+
+POST http://127.0.0.1:10005/api/login
+Content-Type: application/json
+
+{
+  "email": "858687@gmail.com",
+  "password": "123"
+}
+
+
+### Create account
+
+POST http://127.0.0.1:10005/api/register
+Content-Type: application/json
+
+{
+  "email": "858687@gmail.com",
+  "password": "123",
+  "repeat_password": "123"
+}
+
+### Update credentials
+PUT http://127.0.0.1:10005/api/account/611a7209ef4f1f377c96a4eb
+Content-Type: application/json
+
+{
+  "old_password": "1234",
+  "new_password": "123"
+}
+
+### Update account
+PATCH  http://127.0.0.1:10005/api/account/611a7209ef4f1f377c96a4eb
+Content-Type: application/json
+
+{  "sex":"Male",
+   "username":"Ru"
+}
+
+
+### Get account
+Get http://127.0.0.1:10005/api/account/611a7209ef4f1f377c96a4eb
+
+
+### Delete user
+
+DELETE http://127.0.0.1:10005/api/account/611a27949731f8f3c0da7b1d
+Content-Type: application/json

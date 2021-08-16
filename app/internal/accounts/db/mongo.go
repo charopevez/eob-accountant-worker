@@ -90,46 +90,7 @@ func (s *db) FindByEmail(ctx context.Context, email string) (u accounts.Account,
 	return u, nil
 }
 
-func (s *db) UpdateCredentials(ctx context.Context, account accounts.Account) error {
-	objectID, err := primitive.ObjectIDFromHex(account.UUID)
-	if err != nil {
-		return fmt.Errorf("failed to execute query. error: %w", err)
-	}
-
-	filter := bson.M{"_id": objectID}
-	accByte, err := bson.Marshal(account)
-	if err != nil {
-		return fmt.Errorf("failed to marshal document. error: %w", err)
-	}
-
-	var updateObj bson.M
-	err = bson.Unmarshal(accByte, &updateObj)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal document. error: %w", err)
-	}
-
-	delete(updateObj, "_id")
-
-	update := bson.M{
-		"$set": updateObj,
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	result, err := s.collection.UpdateOne(ctx, filter, update)
-	if err != nil {
-		return fmt.Errorf("failed to execute query. error: %w", err)
-	}
-	if result.MatchedCount == 0 {
-		return apperror.ErrNotFound
-	}
-
-	s.logger.Tracef("Matched %v documents and updated %v documents.\n", result.MatchedCount, result.ModifiedCount)
-
-	return nil
-}
-
-func (s *db) UpdateBio(ctx context.Context, account accounts.Account) error {
+func (s *db) UpdateAccount(ctx context.Context, account accounts.Account) error {
 	objectID, err := primitive.ObjectIDFromHex(account.UUID)
 	if err != nil {
 		return fmt.Errorf("failed to execute query. error: %w", err)
@@ -174,18 +135,21 @@ func (s *db) Delete(ctx context.Context, uuid string) error {
 		return fmt.Errorf("failed to convet objectid to hex. error: %w", err)
 	}
 	filter := bson.M{"_id": objectID}
+	update := bson.M{
+		"$set": bson.M{"IsDeleted": true},
+	}
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	result, err := s.collection.DeleteOne(ctx, filter)
+	result, err := s.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
-		return fmt.Errorf("failed to execute query")
+		return fmt.Errorf("failed to execute query. error: %w", err)
 	}
-	if result.DeletedCount == 0 {
+	if result.MatchedCount == 0 {
 		return apperror.ErrNotFound
 	}
 
-	s.logger.Tracef("Delete %v documents.\n", result.DeletedCount)
+	s.logger.Tracef("Deleted %v documents.\n", result.MatchedCount)
 
 	return nil
 }

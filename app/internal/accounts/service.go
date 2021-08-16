@@ -26,14 +26,22 @@ func NewService(accountStorage Storage, logger logging.Logger) (Service, error) 
 
 type Service interface {
 	Create(ctx context.Context, dto CreateAccountDTO) (string, error)
-	AuthenticateAccount(ctx context.Context, email, password string) (Account, error)
+	AuthenticateAccount(ctx context.Context, dto CredentialsDTO) (Account, error)
 	GetAccount(ctx context.Context, uuid string) (Account, error)
 	UpdateCredentials(ctx context.Context, dto UpdateCredentialsDTO) error
+	UpdateAccount(ctx context.Context, dto UpdateAccountDTO) error
 	Delete(ctx context.Context, uuid string) error
 }
 
 //?register new user
 func (s service) Create(ctx context.Context, dto CreateAccountDTO) (accUUID string, err error) {
+	s.logger.Debug("check if user exist")
+	u, err := s.storage.FindByEmail(ctx, dto.Email)
+
+	if err == nil {
+		return u.UUID, apperror.BadRequestError("user with that email already exists")
+	}
+
 	s.logger.Debug("check password and repeat password")
 	if dto.Password != dto.RepeatPassword {
 		return accUUID, apperror.BadRequestError("password does not match repeat password")
@@ -61,8 +69,9 @@ func (s service) Create(ctx context.Context, dto CreateAccountDTO) (accUUID stri
 }
 
 //? authenticate user by mail and password
-func (s service) AuthenticateAccount(ctx context.Context, email, password string) (u Account, err error) {
-	u, err = s.storage.FindByEmail(ctx, email)
+func (s service) AuthenticateAccount(ctx context.Context, dto CredentialsDTO) (u Account, err error) {
+
+	u, err = s.storage.FindByEmail(ctx, dto.Email)
 
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
@@ -70,24 +79,30 @@ func (s service) AuthenticateAccount(ctx context.Context, email, password string
 		}
 		return u, fmt.Errorf("failed to find user by email. error: %w", err)
 	}
+	if !u.IsActive {
+		return u, apperror.ErrNotActive
+	}
+	if u.IsDeleted {
+		return u, apperror.ErrIsDeleted
+	}
 
-	if err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(dto.Password)); err != nil {
 		return u, apperror.ErrNotFound
 	}
 
 	return u, nil
 }
 
-func (s service) GetAccount(ctx context.Context, uuid string) (u Account, err error) {
-	u, err = s.storage.FindOne(ctx, uuid)
+func (s service) GetAccount(ctx context.Context, uuid string) (acc Account, err error) {
+	acc, err = s.storage.FindOne(ctx, uuid)
 
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
-			return u, err
+			return acc, err
 		}
-		return u, fmt.Errorf("failed to find user by uuid. error: %w", err)
+		return acc, fmt.Errorf("failed to find user by uuid. error: %w", err)
 	}
-	return u, nil
+	return acc, nil
 }
 
 //? update user credentials
@@ -118,13 +133,32 @@ func (s service) UpdateCredentials(ctx context.Context, dto UpdateCredentialsDTO
 		return fmt.Errorf("failed to update account credentials. error %w", err)
 	}
 
-	err = s.storage.UpdateCredentials(ctx, updatedAccount)
+	err = s.storage.UpdateAccount(ctx, updatedAccount)
 
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
 			return err
 		}
 		return fmt.Errorf("failed to update user. error: %w", err)
+	}
+	return nil
+}
+
+func (s service) UpdateAccount(ctx context.Context, dto UpdateAccountDTO) error {
+	var updatedAccount Account
+	s.logger.Debug("get account by uuid")
+
+	updatedAccount = UpdatedAccount(dto)
+
+	s.logger.Debug("generate password hash")
+
+	err := s.storage.UpdateAccount(ctx, updatedAccount)
+
+	if err != nil {
+		if errors.Is(err, apperror.ErrNotFound) {
+			return err
+		}
+		return fmt.Errorf("failed to update account. error: %w", err)
 	}
 	return nil
 }
